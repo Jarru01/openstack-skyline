@@ -11,6 +11,10 @@ default:
   enforce_new_defaults: false
   #policy_file_path: /etc/skyline/policy
   #policy_file_suffix: policy.yaml
+  prometheus_endpoint: http://<prometheus_ip>:9090
+  prometheus_enable_basic_auth: false
+  prometheus_basic_auth_user: ''
+  prometheus_basic_auth_password: ''
 openstack:
   base_domains:
     - heat_user_domain
