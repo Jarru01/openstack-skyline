@@ -214,7 +214,6 @@ After=network.target
 
 [Service]
 Type=simple
-# tu dal zlu cestu k binarke
 ExecStart=/snap/bin/golang-openstack-exporter.openstack-exporter \
   --os-client-config /var/snap/golang-openstack-exporter/current/etc/clouds.yaml \
 # --os-client-config /var/prometheus-openstack/clouds.yaml \ - snap nevidi
@@ -582,3 +581,101 @@ If this fails, the monitoring VM's firewall is blocking port 9090 from the Skyli
 | 9090 | Prometheus server | Monitoring VM | Skyline, your browser |
 | 9100 | node_exporter | Monitoring VM + each OpenStack node | Prometheus |
 | 9180 | openstack-exporter | Monitoring VM | Prometheus |
+
+
+---
+
+## Part 11 — Overview recovery fix
+
+The original OpenStack exporter and Skyline overview were not reliable as the source of truth for this deployment. CPU and RAM were being inferred from OpenStack-facing data that did not reflect the physical nodes correctly, while Skyline’s storage overview expected Ceph metrics even though the cloud uses local disk.
+
+The fix was to mirror the accurate physical-node metrics into the exact metric names Skyline expects.
+
+### 11.1 Recording rules for Skyline mapping
+
+Create `/etc/prometheus/skyline_mapping.rules.yml` on the monitoring VM:
+
+```yaml
+groups:
+  - name: skyline_hardware_mirror
+    rules:
+      # --- CPU MIRROR ---
+      # Total Physical Cores
+      - record: openstack_nova_vcpus_available
+        expr: count(node_cpu_seconds_total{mode="idle", cluster="openstack"})
+      # Used Physical Cores (calculated from load)
+      - record: openstack_nova_vcpus_used
+        expr: count(node_cpu_seconds_total{mode="idle", cluster="openstack"}) - sum(rate(node_cpu_seconds_total{mode="idle", cluster="openstack"}[5m]))
+      # --- RAM MIRROR ---
+      # Total Physical RAM (converted to bytes)
+      - record: openstack_nova_memory_available_bytes
+        expr: sum(node_memory_MemTotal_bytes{cluster="openstack"})
+      # Used Physical RAM
+      - record: openstack_nova_memory_used_bytes
+        expr: sum(node_memory_MemTotal_bytes{cluster="openstack"} - node_memory_MemAvailable_bytes{cluster="openstack"})
+      # CEPH MIRROR
+      # Fake Ceph Total Bytes using Node Exporter local disk data
+      - record: ceph_cluster_total_bytes
+        expr: sum(node_filesystem_size_bytes{mountpoint="/", cluster="openstack"})
+      # Fake Ceph Used Bytes
+      - record: ceph_cluster_total_used_bytes
+        expr: sum(node_filesystem_size_bytes{mountpoint="/", cluster="openstack"} - node_filesystem_free_bytes{mountpoint="/", cluster="openstack"})
+      # Fake Ceph Health (Skyline likes to see this too)
+      #- record: ceph_health_status
+      #  expr: vector(1)
+```
+
+### 11.2 Update Prometheus to load the mapping rules
+
+Edit `/etc/prometheus/prometheus.yml` and ensure the rule file is loaded:
+
+```yaml
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus monitoring itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Monitoring VM system metrics
+  - job_name: 'monitoring_vm'
+    static_configs:
+      - targets: ['localhost:9100']
+        labels:
+          role: 'monitoring'
+
+  # OpenStack API metrics
+  # Longer interval — API calls can take 20-60 seconds
+  - job_name: 'openstack'
+    scrape_interval: 60s
+    scrape_timeout: 55s
+    static_configs:
+      - targets: ['localhost:9180']
+
+  # OpenStack physical nodes — compute nodes
+  - job_name: 'openstack_compute'
+    static_configs:
+      - targets:
+          - '10.11.0.21:9100'
+          - '10.11.0.22:9100'
+        labels:
+          role: 'compute'
+          node_type: 'compute'
+          cluster: 'openstack'
+          region: 'RegionOne'
+          node: ""
+
+rule_files:
+  - "skyline_mapping.rules.yml"
+```
+
+### 11.3 Why this fixes Skyline
+
+Skyline overview widgets query for a small set of specific metric names. Rather than trying to force the OpenStack API exporter to expose the physical layer correctly, the recording rules translate the already-correct Node Exporter metrics into the metric names Skyline expects. This makes the overview reflect the real hardware: physical CPU cores, physical RAM, and local-disk capacity presented in a Ceph-like form.
+
+### 11.4 Result
+
+After reloading Prometheus, the overview should no longer show 0/0 values. CPU and RAM should match the real compute nodes, and the storage bar should reflect the local disk capacity mapped through the Ceph-style metric names.
