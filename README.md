@@ -24,7 +24,7 @@ The changes take effect immediately; a restart of the Keystone service is not re
 The most complex issue by far was that the admin panels in the skyline dashboards were read only and nothing was editable inside them, no option to create resources/edit them was shown in the UI.<br>
 
 ### What Was Tried and Didn't Work (Short Summary)
-- Verified system-scoped token generation — worked correctly, token had system: all scope
+- Verified system-scoped token generation — worked correctly, token had system: all scope after granting the skyline user admin role on system:all in openstack
 - Modified Keystone policy.json to allow identity:list_user_projects with system-scoped Admin role — partially helped login but not admin panel
 - Set enforce_new_defaults: true in skyline.yaml — no effect
 - Set enforce_new_defaults: false in skyline.yaml — no effect
