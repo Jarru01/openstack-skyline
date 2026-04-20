@@ -69,6 +69,8 @@ Once `admin` (lowercase) worked and the admin panel functioned, listing instance
 
 The `[neutron]` section in `nova.conf` and neutron's `keystonemiddleware` config both still referenced the old `Admin` role name. Neutron's middleware checks that the Nova service token carries the service role and that the configured admin role matches. With the mismatch, Neutron returned `401` to Nova, and Nova translated that into the generic *"Networking client is experiencing an unauthorized exception."* response back to Skyline. Restarting `neutron-server` after fixing the role reference in both config files cleared it.
 
+#### Why Horizon Worked With Admin (Capital A)
+Horizon bypassed the role name entirely because it uses project-scoped tokens, which trigger a legacy is_admin flag that grants access before the role name is ever checked. Skyline uses system-scoped tokens by design, which never set that flag, forcing every policy check to fall through to an explicit case-sensitive role name comparison — where Admin silently failed against every rule written for admin.
 # TODO:
 * guide - juju charm for skyline
 * guide - load balancing between multiple skyline instances (HAProxy)
