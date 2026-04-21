@@ -35,9 +35,9 @@ The most complex issue by far was that the admin panels in the skyline dashboard
 ### What fixed the issue<br>
 * Setting `immutable` flag of Admin role to `false`
 * Renaming role **A**dmin -> **a**dmin
-* Change of the keystone admin role name `juju config keystone keystone-admin-role=admin`
-* Changing role name Admin -> admin in `nova.conf,neutron.conf`
+* Change of the keystone admin role name `juju config keystone keystone-admin-role=admin`,`juju config keystone admin-role=admin`
 * Changing role name Admin -> admin in `/etc/keystone/policy.json`
+* Changing role name Admin -> admin in `nova.conf,neutron.conf`
 * Restarting neutron service `sudo systemctl restart neutron-server.service`
 
 ### Why renaming role Admin → admin Fixed Everything
