@@ -19,7 +19,12 @@ anywhere in this setup.
 Physical OpenStack Nodes (bare metal)
   └── node_exporter :9100  ─────────────────────────────┐
                                                           │ scrape
-openstack-exporter :9180 ──► OpenStack APIs (snap)       │
+Juju LXD Containers                                      │
+  ├── mysqld_exporter :9104 ─────────────────────────────┤
+  ├── rabbitmq_prometheus :15692 ────────────────────────┤
+  └── memcached_exporter :9150 ──────────────────────────┤
+                                                          │
+openstack-exporter :9180 ──► OpenStack APIs               │
   │ (on monitoring VM)                                    │
   │                                                 Prometheus :9090
   └──────────────────────────────────────────────────────┘
@@ -37,9 +42,9 @@ openstack-exporter :9180 ──► OpenStack APIs (snap)       │
 | Overview — CPU / RAM bars | Recording rules (node_exporter mirror) | ✅ Working |
 | Overview — Storage bar | Recording rules (node_exporter → fake Ceph) | ✅ Working |
 | Physical Nodes | node_exporter on physical hosts | ✅ Working |
-| OpenStack Services | openstack-exporter (`agent_state` metrics) | ✅ Nova + Neutron |
+| OpenStack Services | openstack-exporter (`agent_state` metrics) + dedicated exporters | ✅ Nova + Neutron + RabbitMQ/MySQL/Memcached |
 | Storage Clusters | Real Ceph exporter | ⚠️ Empty — no Ceph in this setup |
-| Other Services (RabbitMQ/MySQL/Memcached) | Dedicated exporters — out of scope | ⚠️ Empty by design |
+| Other Services (RabbitMQ/MySQL/Memcached) | Dedicated exporters (RabbitMQ/MySQL/Memcached) | ✅ Working |
 
 > **Why the Overview bars need a special approach:** Skyline's Overview page queries for specific
 > metric names (`openstack_nova_vcpus_available`, `openstack_nova_memory_used_bytes`,
@@ -351,6 +356,137 @@ sudo ufw reload
 
 ---
 
+## Part 6.5 — Install Infrastructure Exporters (for "Other Services")
+
+Skyline's "Other Services" tab requires specific metric names. We will install these inside your Juju LXD containers.
+
+### 6.5.1 Enable RabbitMQ Monitoring
+
+RabbitMQ 3.9 (your version) has built-in Prometheus support. You just need to enable the plugin on both units.
+
+```bash
+# Enable the plugin on both units
+juju ssh rabbitmq-server/0 -- sudo rabbitmq-plugins enable rabbitmq_prometheus
+juju ssh rabbitmq-server/1 -- sudo rabbitmq-plugins enable rabbitmq_prometheus
+```
+
+Note: RabbitMQ metrics will now be available on port 15692 (the default for the Prometheus plugin).
+
+### 6.5.2 Install MySQL Exporter
+
+You have a 3-node InnoDB cluster. You need to run the exporter on each node.
+
+Create the monitoring user in MySQL:
+
+Get the password (on your MAAS host):
+
+```bash
+export MYSQL_ROOT_PW=$(juju exec --unit mysql-innodb-cluster/2 leader-get mysql.passwd)
+```
+
+Create the user on the Cluster Primary (Unit 2):
+
+```bash
+juju exec --unit mysql-innodb-cluster/2 "mysql -u root -p$MYSQL_ROOT_PW -e \"CREATE USER 'exporter'@'localhost' IDENTIFIED BY 'SecretPass123'; GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO 'exporter'@'localhost';\""
+```
+
+Install the exporter binary on all 3 units (0, 1, and 2):
+
+Install the binary:
+
+```bash
+cd /tmp
+wget https://github.com/prometheus/mysqld_exporter/releases/download/v0.18.0/mysqld_exporter-0.18.0.linux-amd64.tar.gz
+tar xzf mysqld_exporter-0.18.0.linux-amd64.tar.gz
+sudo cp mysqld_exporter-0.18.0.linux-amd64/mysqld_exporter /usr/local/bin/
+```
+
+Create the service:
+
+```bash
+sudo nano /etc/systemd/system/mysqld_exporter.service
+```
+
+Paste this:
+
+```ini
+[Unit]
+Description=MySQL Exporter
+After=network.target
+
+[Service]
+User=root
+ExecStart=/usr/local/bin/mysqld_exporter --config.my-cnf=/etc/.mysqld_exporter.cnf
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Inside your MySQL LXD container (e.g., juju-3e312a-1-lxd-2), create a hidden configuration file:
+
+```bash
+sudo nano /etc/.mysqld_exporter.cnf
+```
+
+Paste the following into that file (replace SecretPass123 with the actual password you created for the exporter user):
+
+```ini
+[client]
+user=exporter
+password=SecretPass123
+socket=/var/run/mysqld/mysqld.sock
+```
+
+Start: ```bash
+sudo systemctl daemon-reload && sudo systemctl enable --now mysqld_exporter
+```
+
+Verify it is working
+
+```bash
+sudo systemctl status mysqld_exporter
+```
+
+### 6.5.3 Install Memcached Exporter
+
+On the Memcached unit (memcached/0):
+
+SSH into the unit: ```bash
+juju ssh memcached/0
+```
+
+Install binary:
+
+```bash
+cd /tmp
+wget https://github.com/prometheus/memcached_exporter/releases/download/v0.16.0/memcached_exporter-0.16.0.linux-amd64.tar.gz
+tar xzf memcached_exporter-0.16.0.linux-amd64.tar.gz
+sudo cp memcached_exporter-0.16.0.linux-amd64/memcached_exporter /usr/local/bin/
+```
+
+Create the service: ```bash
+sudo nano /etc/systemd/system/memcached_exporter.service
+```
+
+Paste this:
+
+```ini
+[Unit]
+Description=Memcached Exporter
+[Service]
+ExecStart=/usr/local/bin/memcached_exporter
+Restart=always
+[Install]
+WantedBy=multi-user.target
+```
+
+Start: ```bash
+sudo systemctl daemon-reload && sudo systemctl enable --now memcached_exporter
+```
+
+---
+
 ## Part 7 — Create the Skyline Mirror Rules
 
 This is the translation layer that makes Skyline's Overview bars work when using local disk
@@ -455,17 +591,19 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9100']
         labels:
+          instance: 'monitoring-server'
           role: 'monitoring'
 
   # OpenStack API metrics
-  # Longer interval — API calls can take 20-60 seconds on Bobcat
   - job_name: 'openstack'
     scrape_interval: 60s
     scrape_timeout: 55s
     static_configs:
       - targets: ['localhost:9180']
+        labels:
+          instance: 'openstack-exporter'
 
-  # OpenStack physical nodes
+  # OpenStack physical nodes (Compute Nodes)
   # Two labels here are critical:
   #   cluster="openstack"  — the recording rules in skyline_mapping.rules.yml
   #                          filter on this to select only these nodes
@@ -475,15 +613,53 @@ scrape_configs:
   #                          explicitly ensures Skyline's queries match.
   - job_name: 'openstack_compute'
     static_configs:
-      - targets:
-          - '10.11.0.21:9100'    # physical node 1 — replace with your actual IPs
-          - '10.11.0.22:9100'    # physical node 2
+      - targets: ['10.11.0.21:9100']
         labels:
+          instance: 'node1'
           role: 'compute'
           node_type: 'compute'
           cluster: 'openstack'
           region: 'RegionOne'
           node: ""
+      - targets: ['10.11.0.22:9100']
+        labels:
+          instance: 'node2'
+          role: 'compute'
+          node_type: 'compute'
+          cluster: 'openstack'
+          region: 'RegionOne'
+          node: ""
+
+  # MySQL Cluster Nodes
+  - job_name: 'mysql'
+    static_configs:
+      - targets: ['10.11.1.36:9104']
+        labels:
+          instance: 'mysql1'
+      - targets: ['10.11.1.42:9104']
+        labels:
+          instance: 'mysql2'
+      - targets: ['10.11.1.49:9104']
+        labels:
+          instance: 'mysql3'
+
+  # RabbitMQ Message Queue Service
+  - job_name: 'rabbitmq'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['10.11.1.35:15692']
+        labels:
+          instance: 'rabbit1'
+      - targets: ['10.11.1.38:15692']
+        labels:
+          instance: 'rabbit2'
+
+  # Memcached Cache Service
+  - job_name: 'memcached'
+    static_configs:
+      - targets: ['10.11.1.46:9150']
+        labels:
+          instance: 'memcache1'
 ```
 
 Replace the IPs with your actual physical node addresses from MAAS. Apply:
@@ -592,11 +768,10 @@ After completing this guide:
 
 - **Overview** — CPU%, RAM%, and Storage% bars populated from physical hardware via recording rules
 - **Physical Nodes** — Per-node CPU, RAM, disk, and network charts from node_exporter
-- **OpenStack Services** — Nova and Neutron service health from openstack-exporter
+- **OpenStack Services** — Nova, Neutron, RabbitMQ, MySQL, Memcached service health from exporters
 - **Storage Clusters** — Empty. Requires a real Ceph cluster with ceph-exporter; not applicable
   to local-disk deployments
-- **Other Services** (RabbitMQ, MySQL, Memcached) — Empty. Requires dedicated exporters
-  (rabbitmq_exporter, mysqld_exporter, memcached_exporter) which are out of scope here
+- **Other Services** (RabbitMQ, MySQL, Memcached) — Service metrics from dedicated exporters
 
 ---
 
@@ -700,4 +875,7 @@ sudo tail -f /var/log/skyline/skyline.log
 |------|---------|---------------|--------------|
 | 9090 | Prometheus server | Monitoring VM | Skyline, your browser |
 | 9100 | node_exporter | Monitoring VM + each physical OpenStack node | Prometheus |
+| 9104 | mysqld_exporter | MySQL LXD containers | Prometheus |
+| 9150 | memcached_exporter | Memcached LXD container | Prometheus |
 | 9180 | openstack-exporter (snap) | Monitoring VM | Prometheus |
+| 15692 | rabbitmq_prometheus plugin | RabbitMQ LXD containers | Prometheus |
