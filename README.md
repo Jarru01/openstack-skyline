@@ -33,8 +33,7 @@ The most complex issue by far was that the admin panels in the skyline dashboard
 - Compared Keystone policies between devstack (working) and Juju+MAAS deployment, patched multiple rules (policy file included in files) — no effect on admin panel functionality
 
 ### What fixed the issue<br>
-* Setting `immutable` flag of Admin role to `false`
-* Renaming role **A**dmin -> **a**dmin
+* Renaming role **A**dmin -> **a**dmin (need to set `immutable` flag of Admin role to `false` beforehand)
 * Change of the keystone admin role name `juju config keystone keystone-admin-role=admin`,`juju config keystone admin-role=admin`
 * Changing role name Admin -> admin in `/etc/keystone/policy.json`
 * Changing role name Admin -> admin in `nova.conf,neutron.conf`
