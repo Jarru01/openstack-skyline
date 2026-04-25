@@ -88,14 +88,29 @@ watch -n5 juju status
 ## Phase 3 — Keystone Policy Overrides (Permanent)
 
 > Uses Juju's native `use-policyd-override` mechanism. Survives every future charm hook run and upgrade. Replaces any manual edits to `/etc/keystone/policy.json`.
+### Fixes Admin → admin role rename. Redundant system_scope clause removed.
+admin_required: "role:admin"
 
+#### Removes hardcoded domain/project UUIDs from old rule, works with system-scoped tokens.
+cloud_admin: "rule:admin_required"
+
+#### Removes domain_id constraint that broke system-scoped token admin operations.
+admin_or_owner: "rule:admin_required or rule:owner"
+
+#### Required for Skyline login — allows admin to list projects for any user.
+#### Redundant rule:cloud_admin clause removed (equals admin_required anyway).
+identity:list_user_projects: "rule:owner or rule:admin_required"
+
+# Security fix — was empty string in both old and new (anyone could delete trusts).
+identity:delete_trust: "rule:admin_required or user_id:%(target.trust.trustor_user_id)s"
 ```bash
 # Step 1: Create the overrides file
 cat > keystone-overrides.yaml << 'EOF'
-identity:list_user_projects: "rule:owner or rule:admin_and_matching_domain_id or (role:admin and system_scope:all)"
+admin_required: "role:admin"
+cloud_admin: "rule:admin_required"
 admin_or_owner: "rule:admin_required or rule:owner"
+identity:list_user_projects: "rule:owner or rule:admin_required"
 identity:delete_trust: "rule:admin_required or user_id:%(target.trust.trustor_user_id)s"
-admin_required: "role:admin or (role:admin and system_scope:all)"
 EOF
 
 # Step 2: Zip it (charm requires zip format)
