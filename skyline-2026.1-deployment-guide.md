@@ -502,7 +502,7 @@ The port change (80/443 → 9999) is handled in the next dedicated section.
 
 ---
 
-## 8. Port Configuration — Listen on 9999
+## 8. Port Configuration — Listen on 9999 - **SKIP, SET BY DEFAULT**
 
 By default, `skyline-nginx-generator` creates a configuration that listens on ports 80 (HTTP) and 443 (HTTPS). Because Horizon already occupies those ports, we redirect all traffic to port `9999`.
 
