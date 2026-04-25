@@ -126,9 +126,11 @@ source /etc/kolla/admin-openrc.sh   # adjust path to your admin-openrc
 
 # Create skyline user — you will be prompted for a password
 openstack user create --domain default --password-prompt skyline
-
+#admin_domain
 # Grant admin role in the service project
 openstack role add --project service --user skyline admin
+#--project admin
+#system scope? - openstack role add --user skyline --user-domain admin_domain --system all Admin
 ```
 
 > **Note:** The `admin` role is required because Skyline makes admin-level API calls on behalf of users. Record the password you set — it becomes `SKYLINE_SERVICE_PASSWORD` later.
