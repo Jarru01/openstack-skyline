@@ -142,7 +142,7 @@ juju ssh keystone/0 "sudo cat /etc/keystone/policy.d/keystone-overrides.yaml"
 juju run --unit neutron-api/0 "sudo systemctl restart neutron-server"
 
 # Confirm healthy
-juju ssh neutron-api/0 "sudo systemctl status neutron-server | head -5"
+juju ssh neutron-api/0 "sudo systemctl status neutron-server.service"
 # Expected: active (running)
 ```
 
