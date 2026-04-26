@@ -20,17 +20,14 @@ juju attach-resource keystone policyd-override=keystone-policyd-override.zip
 juju config keystone use-policyd-override=true
 
 # Step 5: Verify charm applied it
-juju ssh keystone/0 "sudo ls /etc/keystone/policy.d/"
+#juju ssh keystone/0 "sudo ls /etc/keystone/policy.d/"
 # Expected: keystone-overrides.yaml listed
 
-juju ssh keystone/0 "sudo cat /etc/keystone/policy.d/keystone-overrides.yaml"
+#juju ssh keystone/0 "sudo cat /etc/keystone/policy.d/keystone-overrides.yaml"
 # Expected: contents of your overrides file
 
-
-juju ssh neutron-api/0 "sudo systemctl restart neutron-server.service"
-
-# Confirm healthy
-juju ssh neutron-api/0 "sudo systemctl status neutron-server.service"
-# Expected: active (running)
-
-juju config nova-cloud-controller console-access-protocol="novnc" 
+# Wait for ALL units to reach active/idle before proceeding to Phase 3
+# Do not continue until this is clean (takes a lot of time to propagate)
+juju status
+echo "*****Wait for ALL units to reach active/idle before proceeding to Phase 3 - consoleProtocol.sh*****"
+echo "*****Issue command: juju ssh neutron-api/0 "sudo systemctl restart neutron-server.service" after ALL units to reach active/idle*****"
