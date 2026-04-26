@@ -32,3 +32,5 @@ juju ssh neutron-api/0 "sudo systemctl restart neutron-server.service"
 # Confirm healthy
 juju ssh neutron-api/0 "sudo systemctl status neutron-server.service"
 # Expected: active (running)
+
+juju config nova-cloud-controller console-access-protocol="novnc" 
