@@ -36,3 +36,4 @@ juju config keystone keystone-admin-role=admin
 # Do not continue until this is clean (takes a lot of time to propagate)
 juju status
 echo "*****Wait for ALL units to reach active/idle before proceeding to Phase 2 - policyOverride.sh*****"
+echo "*****If errors related to HEAT occur, refer the the documentation at docs.cc.uniza.sk for fixing them (heat internal error)*****"
