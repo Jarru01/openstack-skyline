@@ -358,15 +358,17 @@ default:
   database_url: mysql://skyline:SKYLINE_DBPASS@localhost:3306/skyline
   debug: false
   log_dir: /var/log/skyline
+  prometheus_endpoint: http://<prometheus_ip>:9090
+
 
 openstack:
   keystone_url: http://KEYSTONE_SERVER:5000/v3/
   default_region: RegionOne
   system_user_name: skyline
   system_user_password: SKYLINE_SERVICE_PASSWORD
-  system_user_domain: Default
-  system_project: service
-  system_project_domain: Default
+  system_user_domain: admin_domain
+  system_project: admin
+  system_project_domain: admin_domain
   interface_type: public
 ```
 
