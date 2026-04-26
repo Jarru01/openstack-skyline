@@ -3,120 +3,88 @@ default:
   access_token_renew: 1800
   cafile: ''
   cors_allow_origins: []
-  database_url: mysql://skyline:<password>@127.0.0.1:3306/skyline
-  debug: true
-  log_dir: /var/log/skyline
+  database_url: mysql://skyline:<password>@localhost:3306/skyline
+  debug: false
+  log_dir: ./log
+  log_file: skyline.log
+  policy_file_path: /etc/skyline/policy
+  policy_file_suffix: policy.yaml
+  prometheus_basic_auth_password: ''
+  prometheus_basic_auth_user: ''
+  prometheus_enable_basic_auth: false
+  prometheus_endpoint: http://<prometheus_ip>:9090
   secret_key: aCtmgbcUqYUy_HNVg5BDXCaeJgJQzHJXwqbXr0Nmb2o
   session_name: session
-  enforce_new_defaults: false
-  #policy_file_path: /etc/skyline/policy
-  #policy_file_suffix: policy.yaml
-  prometheus_endpoint: http://<prometheus_ip>:9090
-  prometheus_enable_basic_auth: false
-  prometheus_basic_auth_user: ''
-  prometheus_basic_auth_password: ''
+  ssl_enabled: false
 openstack:
   base_domains:
-    - heat_user_domain
-  base_roles:
-    - keystone_system_admin
-    - keystone_system_reader
-    - keystone_project_admin
-    - keystone_project_member
-    - keystone_project_reader
-    - nova_system_admin
-    - nova_system_reader
-    - nova_project_admin
-    - nova_project_member
-    - nova_project_reader
-    - cinder_system_admin
-    - cinder_system_reader
-    - cinder_project_admin
-    - cinder_project_member
-    - cinder_project_reader
-    - glance_system_admin
-    - glance_system_reader
-    - glance_project_admin
-    - glance_project_member
-    - glance_project_reader
-    - neutron_system_admin
-    - neutron_system_reader
-    - neutron_project_admin
-    - neutron_project_member
-    - neutron_project_reader
-    - heat_system_admin
-    - heat_system_reader
-    - heat_project_admin
-    - heat_project_member
-    - heat_project_reader
-    - placement_system_admin
-    - placement_system_reader
-    - panko_system_admin
-    - panko_system_reader
-    - panko_project_admin
-    - panko_project_member
-    - panko_project_reader
-    - ironic_system_admin
-    - ironic_system_reader
-    - octavia_system_admin
-    - octavia_system_reader
-    - octavia_project_admin
-    - octavia_project_member
-    - octavia_project_reader
+  - heat_user_domain
   default_region: RegionOne
+  enforce_new_defaults: false
   extension_mapping:
+    floating-ip-port-forwarding: neutron_port_forwarding
     fwaas_v2: neutron_firewall
+    qos: neutron_qos
     vpnaas: neutron_vpn
   interface_type: public
-  keystone_url: https://<keystone_ip>:5000/v3
+  keystone_url: https://<keystone_ip>:5000/v3/
   nginx_prefix: /api/openstack
   reclaim_instance_interval: 604800
   service_mapping:
+    baremetal: ironic
     compute: nova
+    container: zun
+    container-infra: magnum
+    database: trove
+    dns: designate
     identity: keystone
     image: glance
+    instance-ha: masakari
+    key-manager: barbican
+    load-balancer: octavia
     network: neutron
+    object-store: swift
     orchestration: heat
     placement: placement
+    sharev2: manilav2
     volumev3: cinder
-    load-balancer: octavia
-    dns: designate
-  #sets which roles are considered system admin for the purpose of token validation and authorization in Skyline.
+  sso_enabled: false
+  sso_protocols:
+  - openid
+  sso_region: RegionOne
   system_admin_roles:
-    - admin
-    - system_admin
-  system_project: <project name>
-  system_project_domain: <domain name>
+  - admin
+  - system_admin
+  system_project: admin
+  system_project_domain: admin_domain
   system_reader_roles:
-    - reader
-    - system_reader
-  system_user_domain: <domain name>
-  system_user_name: <service user name>
-  system_user_password: <service user password>
-  enforce_new_defaults: false
+  - system_reader
+  system_user_domain: admin_domain
+  system_user_name: skyline
+  system_user_password: <skyline service user password>
 setting:
   base_settings:
-    - flavor_families
-    - gpu_models
-    - usb_models
+  - flavor_families
+  - gpu_models
+  - usb_models
   flavor_families:
-    - architecture: x86_architecture
-      categories:
-        - name: general_purpose
-          properties: []
-        - name: compute_optimized
-          properties: []
-        - name: memory_optimized
-          properties: []
-        - name: high_clock_speed
-          properties: []
-    - architecture: heterogeneous_computing
-      categories:
-        - name: compute_optimized_type_with_gpu
-          properties: []
-        - name: visualization_compute_optimized_type_with_gpu
-          properties: []
+  - architecture: x86_architecture
+    categories:
+    - name: general_purpose
+      properties: []
+    - name: compute_optimized
+      properties: []
+    - name: memory_optimized
+      properties: []
+    - name: high_clock_speed
+      properties: []
+  - architecture: heterogeneous_computing
+    categories:
+    - name: compute_optimized_type_with_gpu
+      properties: []
+    - name: visualization_compute_optimized_type_with_gpu
+      properties: []
   gpu_models:
-    - nvidia_t4
+  - nvidia_t4
   usb_models:
-    - usb_c
+  - usb_c
