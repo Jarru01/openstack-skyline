@@ -17,7 +17,6 @@
 5. [Part A — Install MariaDB (in container)](#5-part-a--install-mariadb-in-container)
 6. [Part B — Install skyline-apiserver](#6-part-b--install-skyline-apiserver)
 7. [Part C — Install skyline-console](#7-part-c--install-skyline-console)
-8. [Port Configuration — Listen on 9999](#8-port-configuration--listen-on-9999)
 9. [Service Management & Verification](#9-service-management--verification)
 10. [Login Page Customisation](#10-login-page-customisation)
 11. [Juju Charm Integration Notes](#11-juju-charm-integration-notes)
@@ -210,12 +209,10 @@ These steps run on your **existing OpenStack controller**, not in the LXD contai
 source /etc/kolla/admin-openrc.sh   # adjust path to your admin-openrc
 
 # Create skyline user — you will be prompted for a password
-openstack user create --domain default --password-prompt skyline
-#admin_domain
+openstack user create --domain admin_domain --password-prompt skyline
 # Grant admin role in the service project
-openstack role add --project service --user skyline admin
-#--project admin
-#system scope? - openstack role add --user skyline --user-domain admin_domain --system all Admin
+openstack role add --project admin --user skyline admin #--project service default
+#system scope - if having issues with admin panels - openstack role add --user skyline --user-domain admin_domain --system all Admin
 ```
 
 > **Note:** The `admin` role is required because Skyline makes admin-level API calls on behalf of users. Record the password you set — it becomes `SKYLINE_SERVICE_PASSWORD` later.
@@ -286,8 +283,8 @@ Follow the prompts. Set a root password if you haven't already.
 ```bash
 mysql -u root <<'EOF'
 CREATE DATABASE skyline DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
-GRANT ALL PRIVILEGES ON skyline.* TO 'skyline'@'localhost' IDENTIFIED BY 'Skyline159';
-GRANT ALL PRIVILEGES ON skyline.* TO 'skyline'@'%'         IDENTIFIED BY 'Skyline159';
+GRANT ALL PRIVILEGES ON skyline.* TO 'skyline'@'localhost' IDENTIFIED BY 'SKYLINE_DBPASS';
+GRANT ALL PRIVILEGES ON skyline.* TO 'skyline'@'%'         IDENTIFIED BY 'SKYLINE_DBPASS';
 FLUSH PRIVILEGES;
 EOF
 ```
@@ -568,7 +565,7 @@ mkdir -p /etc/skyline /var/log/skyline
 
 `/etc/skyline/skyline.yaml` must already be present (configured in step 6.5). The nginx configuration generator reads it.
 
-### 7.9 Generate the nginx configuration
+### 7.9 Generate and apply the nginx configuration
 
 The `skyline-nginx-generator` binary is inside the venv:
 
@@ -586,103 +583,7 @@ sed -i \
   /etc/nginx/nginx.conf
 ```
 
-The port change (80/443 → 9999) is handled in the next dedicated section.
-
 ---
-
-## 8. Port Configuration — Listen on 9999 - **SET BY DEFAULT, SKIP TO 8.4**
-
-By default, `skyline-nginx-generator` creates a configuration that listens on ports 80 (HTTP) and 443 (HTTPS). Because Horizon already occupies those ports, we redirect all traffic to port `9999`.
-
-### 8.1 Understand the generated nginx.conf structure
-
-The generated `/etc/nginx/nginx.conf` contains:
-- An HTTP `server` block listening on port `80` that redirects to HTTPS
-- An HTTPS `server` block listening on port `443` serving the application
-
-### 8.2 Edit nginx.conf to listen on 9999
-
-Open `/etc/nginx/nginx.conf` in your editor. You will find two `listen` directives. Change them both:
-
-```bash
-# Change the HTTP redirect listener from 80 to 9999-http (or remove the redirect block entirely)
-# Change the HTTPS listener from 443 to 9999
-
-sed -i 's/listen 80;/listen 9999;/g'   /etc/nginx/nginx.conf
-sed -i 's/listen 443 ssl;/listen 9999 ssl;/g' /etc/nginx/nginx.conf
-```
-
-> If you want **HTTP-only** on port 9999 (acceptable for an internal-only LXD container behind a trusted network), you can simplify the config substantially. See the alternative HTTP-only config below.
-
-### 8.3 Alternative: HTTP-only nginx config on port 9999
-
-For an internal deployment where HTTPS is terminated upstream (or where you simply want to avoid certificate management), replace the generated config entirely with this minimal HTTP-only version. It still proxies to gunicorn and serves static files.
-
-First, locate where skyline-console static files are installed:
-
-```bash
-STATIC_PATH=$(python3 -c \
-  "import skyline_console; import os; print(os.path.dirname(skyline_console.__file__))")/static
-echo $STATIC_PATH
-# Typically: /opt/skyline-venv/lib/python3.10/site-packages/skyline_console/static
-```
-
-> **Ubuntu 22.04 note:** The path will contain `python3.10` (not `python3.12` as on Ubuntu 24.04). The `STATIC_PATH` variable above is computed dynamically, so it will always resolve correctly regardless of the Python minor version.
-
-Then write the nginx config:
-
-```bash
-cat > /etc/nginx/nginx.conf <<EOF
-user www-data;
-worker_processes auto;
-pid /run/nginx.pid;
-
-events {
-    worker_connections 1024;
-}
-
-http {
-    include       /etc/nginx/mime.types;
-    default_type  application/octet-stream;
-
-    sendfile        on;
-    keepalive_timeout 65;
-
-    upstream skyline {
-        server 127.0.0.1:28000 fail_timeout=0;
-    }
-
-    server {
-        listen 0.0.0.0:9999;
-        server_name _;
-
-        access_log /var/log/nginx/skyline_access.log;
-        error_log  /var/log/nginx/skyline_error.log;
-
-        # Proxy API requests to gunicorn
-        location /api {
-            proxy_pass         http://skyline;
-            proxy_set_header   Host              \$host;
-            proxy_set_header   X-Real-IP         \$remote_addr;
-            proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
-            proxy_set_header   X-Forwarded-Proto \$scheme;
-            proxy_read_timeout 600;
-            client_max_body_size 10g;
-        }
-
-        # Serve the compiled React frontend
-        location / {
-            root  ${STATIC_PATH};
-            index index.html;
-            try_files \$uri \$uri/ /index.html;
-        }
-    }
-}
-EOF
-```
-
-### 8.4 Test and apply the nginx configuration
-
 ```bash
 nginx -t
 # Expected: nginx: configuration file /etc/nginx/nginx.conf test is successful
