@@ -1,5 +1,11 @@
 . /home/test/scripts/admin-openrc.sh
 
+juju ssh neutron-api/0 "sudo systemctl restart neutron-server.service"
+sleep 5
+# Confirm healthy
+juju ssh neutron-api/0 "sudo systemctl status neutron-server.service"
+# Expected: active (running)
+
 # Step 1: Create the overrides file
 cat > keystone-overrides.yaml << 'EOF'
 admin_required: "role:admin"
@@ -30,4 +36,3 @@ juju config keystone use-policyd-override=true
 # Do not continue until this is clean (takes a lot of time to propagate)
 juju status
 echo "*****Wait for ALL units to reach active/idle before proceeding to Phase 3 - consoleProtocol.sh*****"
-echo "*****Issue command: juju ssh neutron-api/0 "sudo systemctl restart neutron-server.service" after ALL units to reach active/idle*****"
