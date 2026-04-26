@@ -22,6 +22,17 @@ openstack role assignment list --role admin --names | head -20
 # Trigger propagation
 juju config keystone admin-role=admin
 juju config keystone keystone-admin-role=admin
+
+# Optional: Nudge other services to pick up the change (if they cache role info)
+#TARGET_APPS="nova-cloud-controller neutron-api glance placement heat barbican designate octavia openstack-dashboard"
+#for app in $TARGET_APPS; do
+#    echo "--- Nudging $app ---"
+#    juju config $app debug=true
+#    # Give Juju a moment to trigger the hook
+#    juju config $app debug=false
+#done
+
 # Wait for ALL units to reach active/idle before proceeding to Phase 2
-# Do not continue until this is clean
+# Do not continue until this is clean (takes a lot of time to propagate)
 juju status
+echo "Wait for ALL units to reach active/idle before proceeding to Phase 2"
