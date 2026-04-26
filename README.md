@@ -4,7 +4,7 @@ Repository containing guides, configuration files and notes on deploying skyline
 - Tested on a mini 2-node OpenStack cloud deployed via **MaaS + Juju** (Bobcat)
 - Skyline supports **Prometheus**-fed monitoring dashboards - installation and integration guide included in files
 
-## Issue01: Unacessible instance console
+## Issue01: Inacessible instance console
 After installing skyline dashboard the console of instances was unavailable, when trying to connect to console it threw error: Unavailable console type novnc (400). Skyline apparently doesn't support spice that was configured on the underlying openstack by default.
 ### Solution: console access protocol in openstack had to be set to novnc.<br> 
 ```juju config nova-cloud-controller console-access-protocol="novnc" ```
