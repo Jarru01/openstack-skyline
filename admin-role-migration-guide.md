@@ -139,7 +139,7 @@ juju ssh keystone/0 "sudo cat /etc/keystone/policy.d/keystone-overrides.yaml"
 > Required based on observed behaviour in test environment. The charm relation propagation updates config files but Neutron does not always reload automatically.
 
 ```bash
-juju run --unit neutron-api/0 "sudo systemctl restart neutron-server"
+juju run --unit neutron-api/0 "sudo systemctl restart neutron-server.service"
 
 # Confirm healthy
 juju ssh neutron-api/0 "sudo systemctl status neutron-server.service"

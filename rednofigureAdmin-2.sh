@@ -28,7 +28,7 @@ juju ssh keystone/0 "sudo cat /etc/keystone/policy.d/keystone-overrides.yaml"
 # Expected: contents of your overrides file
 
 
-juju run --unit neutron-api/0 "sudo systemctl restart neutron-server"
+juju run --unit neutron-api/0 "sudo systemctl restart neutron-server.service"
 
 # Confirm healthy
 juju ssh neutron-api/0 "sudo systemctl status neutron-server.service"
