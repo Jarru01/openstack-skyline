@@ -723,6 +723,9 @@ cp $SKYLINE_STATIC/bg_login.a3b4c5d6.png \
    $SKYLINE_STATIC/bg_login.a3b4c5d6.png.bak
 ```
 
+login img location in my deploy: /opt/skyline-venv/lib/python3.10/site-packages/skyline_console/static/asset/image/login-full.1777161428.png
+
+
 4. Copy your image over the original, keeping the exact filename:
 
 ```bash
