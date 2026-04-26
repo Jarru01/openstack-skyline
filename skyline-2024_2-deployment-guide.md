@@ -868,13 +868,17 @@ ExecStart=/opt/skyline-venv/bin/gunicorn \
 
 Manage `/etc/skyline/skyline.yaml` as a charm-rendered Jinja2 template. Expose these as charm config options:
 
-- `database-url`
+- `database-url` (default: `mysql://skyline:password@localhost:3306/skyline`)
 - `keystone-url`
-- `default-region`
+- `default-region` (default: `RegionOne`)
 - `system-user-password`
+- `system-user-domain` (default: `admin_domain`)
+- `ssl_enabled` (default: `false`)
 - `listen-port` (default: `9999`)
 - `debug` (default: `false`)
-- and more, based on the skyline.yaml
+- `system-project` (default: `admin`)
+- `system-project-domain` (default: `admin_domain`)
+- more if needed, based on the skyline.yaml
 
 ### 11.4 Node.js version
 
@@ -967,6 +971,3 @@ lxc config device add <container> skyline-http proxy \
   listen=tcp:0.0.0.0:9999 \
   connect=tcp:127.0.0.1:9999
 ```
-
----
-
