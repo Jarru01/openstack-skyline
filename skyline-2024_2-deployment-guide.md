@@ -874,6 +874,7 @@ Manage `/etc/skyline/skyline.yaml` as a charm-rendered Jinja2 template. Expose t
 - `system-user-password`
 - `listen-port` (default: `9999`)
 - `debug` (default: `false`)
+- and more, based on the skyline.yaml
 
 ### 11.4 Node.js version
 
