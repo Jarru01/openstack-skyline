@@ -1,0 +1,57 @@
+prompt:
+i have a openstack deployed via juju charms on version bobcat. each service lives inside lxc container on compute nodes. i need you to create a charm for me which doesnt exist, for skyline dashboard deployment. i have installed it inside a lxc container to test it out and wrote down the whole process, alongside the skyline.yaml file and other notes such as some of the parameters that should be configurable via juju, everything is inside the guide i sent.
+i want you to create me a working juju charm that will deploy skyline based on the guide i sent you, gives proper interface for configuration and also describe me in detail the steps i need to create the charm aswell as i havent dont it before.
+
+output:
+What was created
+10 files across the standard ops-framework charm structure. Here's a detailed walkthrough of every decision.
+
+How the charm is structured
+charmcraft.yaml
+Tells charmcraft pack that this is an ops charm targeting Ubuntu 22.04, and that it needs ops and jinja2 bundled inside the .charm file. You never touch Python packages for the application here — those go into the venv the charm creates at runtime.
+metadata.yaml
+The charm's identity. The important bits: it declares series: jammy, an optional db relation (not wired up yet but ready), and a website provides relation for haproxy if you ever put one in front. It also has a skyline-peers peer relation placeholder for future HA.
+config.yaml
+Every juju config skyline key=value you'll ever run maps to an entry here. The two without defaults — keystone-url and system-user-password — cause the charm to stay in BlockedStatus until you supply them. Everything else has a sane default based directly on your guide and the skyline.yaml you sent me.
+src/charm.py
+This is the core. Key design points:
+ops.StoredState — three values survive across config-changed and charm upgrades: secret_key (generated once, never rotated unless you explicitly set it), db_password (same for local MariaDB), and static_path (discovered once after the console wheel is installed). Without this, every config change would regenerate a new secret key and log everyone out.
+The install event does purely software installation in sequence: apt → venv → apiserver clone+pip → nvm+Node+yarn+make package+pip install wheel → discovers and stores the static_path. No config is written here.
+The config-changed event does everything else: validates required config, creates the local MariaDB database/user (idempotent SQL with IF NOT EXISTS), renders all four templates, runs make db_sync with the venv on PATH, then restarts services.
+_detect_node_lts_alias() reads engines.node from package.json as your guide specifically recommended — so if Skyline ever updates its Node requirement, the charm picks it up automatically rather than failing.
+_keystone_url() normalises whatever the user types — with or without trailing /v3/ — to the canonical form Skyline expects.
+Templates
+skyline.yaml.j2 — directly mirrors your skyline.yaml file with every field mapped to a {{ variable }}. The | lower filter on booleans converts Python True/False to YAML-correct true/false.
+gunicorn.py.j2 — bind hardcoded to 127.0.0.1:28000 (loopback only) per your section 2.3. If gunicorn-workers is 0, it emits multiprocessing.cpu_count() so it auto-scales.
+skyline-apiserver.service.j2 — sets OS_CONFIG_DIR=/etc/skyline, uses the full venv path for gunicorn, and conditionally adds Wants=mariadb.service only if you're using local DB.
+nginx.conf.j2 — hand-written instead of relying on skyline-nginx-generator (per your section 11.5 note). Proxies /api/openstack upstream to gunicorn, serves everything else as static files with try_files $uri /index.html, and adds long-lived cache headers for hashed JS/CSS files. No dollar-sign escaping bugs.
+
+Steps to build and deploy
+bash# 1. Install charmcraft
+sudo snap install charmcraft --classic
+
+# 2. Build (from inside skyline-charm/)
+cd skyline-charm/
+charmcraft pack
+# → produces skyline_ubuntu-22.04-amd64.charm
+
+# 3. Create the OS service user on your controller first
+openstack user create --domain admin_domain --password-prompt skyline
+openstack role add --project admin --user skyline admin
+
+# 4. Deploy into an LXD container on machine 0
+juju deploy ./skyline_ubuntu-22.04-amd64.charm \
+  --config keystone-url="http://YOUR_KEYSTONE_IP:5000/v3/" \
+  --config system-user-password="THE_PASSWORD" \
+  --to lxd:0
+
+# 5. Watch progress
+juju status --watch 5s
+The console build step takes the most time (5–15 min). Once you see active: Skyline ready on :9999, open http://<unit-ip>:9999 in a browser.
+
+Things to know before you deploy
+
+RAM: The make package React build needs at least 2 GB inside the LXC container. 4 GB is comfortable. If you're tight on RAM, the troubleshooting section in the README covers adding a swap file.
+External DB: Set juju config skyline database-url="mysql://skyline:PASS@HOST:3306/skyline" to skip local MariaDB entirely.
+Port conflict with Horizon: Port 9999 is used by default — change with juju config skyline listen-port=XXXX.
+Secret key: Generated once and persisted. Don't change it after users are logged in unless you want to invalidate all sessions.
