@@ -1,5 +1,4 @@
-/home/student/scripts/certCopy.sh
-. /home/student/scripts/exportCred.sh
+. /home/test/scripts/admin-openrc.sh
 
 # Step 1: Get the role ID (if not already done above)
 ROLE_ID=$(openstack role show Admin -f value -c id)

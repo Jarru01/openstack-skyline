@@ -1,5 +1,5 @@
-/home/student/scripts/certCopy.sh
-. /home/student/scripts/exportCred.sh
+. /home/test/scripts/admin-openrc.sh
+
 
 # Step 1: Create the overrides file
 cat > keystone-overrides.yaml << 'EOF'
