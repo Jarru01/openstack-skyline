@@ -535,7 +535,7 @@ npm install -g yarn
 ```
 
 ### 7.6 Build the skyline-console wheel
-
+**Any changes you would like to make to the text on the pages/login, or the functioning of its parts has to be made here before issuing make package command**
 ```bash
 pip install wheel setuptools --upgrade
 cd /root/skyline-console
@@ -841,6 +841,16 @@ nginx -t && systemctl reload nginx
 > **Charm tip:** Store your nginx.conf template separately from the generated one. In the charm, generate the file, apply patches, then write the final config in one idempotent step.
 
 ---
+
+### 10.6 Changing skyline default login domain
+Note: this hardcodes the new default domain name during login, in this case admin_domain.
+
+```bash
+sed -i "s/domain: tmp\[1\] || 'Default'/domain: tmp[1] || 'admin_domain'/" \
+  /root/skyline-console/src/pages/auth/containers/Login/index.jsx
+```
+confirm via:
+`grep "domain: tmp\[1\]" /root/skyline-console/src/pages/auth/containers/Login/index.jsx`
 
 ## 11. Juju Charm Integration Notes
 
