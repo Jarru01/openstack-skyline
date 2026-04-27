@@ -843,7 +843,7 @@ nginx -t && systemctl reload nginx
 ---
 
 ### 10.6 Changing skyline default login domain
-Note: this hardcodes the new default domain name during login, in this case admin_domain.
+Note: this hardcodes the new default domain name during login, in this case admin_domain. After this change, you need to redo all the steps of installing skyline console startting at the `make package` section
 
 ```bash
 sed -i "s/domain: tmp\[1\] || 'Default'/domain: tmp[1] || 'admin_domain'/" \
