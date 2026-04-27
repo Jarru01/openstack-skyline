@@ -19,6 +19,17 @@ options:
         openstack user create --domain admin_domain --password-prompt skyline
         openstack role add --project admin --user skyline admin
 
+  # ─ Default login domain ──────────────────────────────────────────────────────────
+  default-login-domain:
+    type: string
+    default: "admin_domain"
+    description: |
+      Default domain pre-filled on the Skyline login screen when no domain
+      is specified in the URL. Upstream default is 'Default'.
+      Changing this requires rebuilding the console from source — the charm
+      handles this automatically on config-changed or upgrade-charm.
+      Set to "" to leave the upstream default ('Default') unchanged.
+
   # ── Database ──────────────────────────────────────────────────────────
   database-url:
     type: string

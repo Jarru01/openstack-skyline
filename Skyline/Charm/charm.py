@@ -293,6 +293,54 @@ class SkylineCharm(ops.CharmBase):
             logger.warning("Could not read package.json engines: %s", exc)
         return "gallium"            # Node 16 LTS — upstream default for 2024.2
 
+    def _patch_console_source(self):
+        """
+        Patch the login domain default in the React source before make package.
+        Replaces upstream 'Default' domain with the configured default-login-domain.
+        Uses Python string replacement instead of sed to avoid shell escaping issues.
+        Idempotent: if the target string is already patched, does nothing.
+        """
+        domain = self.config.get("default-login-domain", "").strip()
+        if not domain:
+            logger.info("default-login-domain is empty — skipping login domain patch")
+            return
+
+        login_jsx = (
+            CONSOLE_SRC
+            / "src/pages/auth/containers/Login/index.jsx"
+        )
+
+        if not login_jsx.exists():
+            raise FileNotFoundError(
+                f"Login source file not found: {login_jsx}\n"
+                "Was skyline-console cloned successfully?"
+            )
+
+        original = login_jsx.read_text(encoding="utf-8")
+        old_str = "domain: tmp[1] || 'Default'"
+        new_str = f"domain: tmp[1] || '{domain}'"
+
+        if new_str in original:
+            logger.info("Login domain already patched to '%s' — skipping", domain)
+            return
+
+        if old_str not in original:
+            raise RuntimeError(
+                f"Expected string not found in {login_jsx}:\n"
+                f"  {old_str!r}\n"
+                "The upstream source may have changed. Check the file manually."
+            )
+
+        patched = original.replace(old_str, new_str, 1)
+        login_jsx.write_text(patched, encoding="utf-8")
+
+        # Verify
+        verify = login_jsx.read_text(encoding="utf-8")
+        if new_str not in verify:
+            raise RuntimeError("Patch was written but verification read-back failed")
+
+        logger.info("Patched login domain default → '%s'", domain)
+
     def _install_console(self, upgrade: bool = False):
         """Clone, build, and install the skyline-console Python wheel."""
         branch = self.config["console-branch"]
@@ -322,6 +370,9 @@ class SkylineCharm(ops.CharmBase):
         self._nvm_sh(f"nvm install --lts={lts_alias}")
         self._nvm_sh(f"nvm alias default lts/{lts_alias}")
         self._nvm_sh(f"nvm use lts/{lts_alias} && npm install -g yarn")
+
+        # ── Patch login domain default before build ──────────────────────
+        self._patch_console_source()
 
         # ── Build the React app into a Python wheel ──────────────────────
         self.unit.status = ops.MaintenanceStatus(
