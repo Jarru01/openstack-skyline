@@ -173,6 +173,7 @@ OpenStack user credentials.
 |---|---|---|
 | `keystone-url` | *(required)* | Full Keystone v3 URL |
 | `system-user-password` | *(required)* | Password of the `skyline` OS user |
+| `default-login-domain` | `admin_domain` | Default domain pre-filled on the Skyline login screen when no domain is specified in the URL |
 | `database-url` | `""` | External DB URL; leave empty for local MariaDB |
 | `database-password` | `""` | Local MariaDB password (auto-generated if empty) |
 | `default-region` | `RegionOne` | OpenStack region |
