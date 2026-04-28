@@ -16,7 +16,7 @@ Deploys **OpenStack Skyline Dashboard** (stable/2024.2) including:
 ```
 skyline-charm/
 ├── charmcraft.yaml               # Build config: base Ubuntu 22.04, Python deps
-├── metadata.yaml                 # Charm name, relations, series
+├── metadata.yaml                 # Charm name, relations, series **MERGED INTO CHARMCRAFT.YAML**
 ├── config.yaml                   # All user-facing config options with defaults
 ├── actions.yaml                  # Juju actions (db-sync, restart-services, …)
 ├── requirements.txt              # Charm Python deps: ops, jinja2
@@ -51,7 +51,7 @@ charmcraft version
 ```
 skyline-charm/
 ├── charmcraft.yaml    ← tells charmcraft how to pack the charm
-├── metadata.yaml      ← charm identity, relations, supported series
+├── metadata.yaml      ← charm identity, relations, supported series **MERGED INTO CHARMCRAFT.YAML**
 ├── config.yaml        ← every `juju config` key lives here
 ├── actions.yaml       ← every `juju run-action` command lives here
 ├── requirements.txt   ← Python packages the charm itself needs (not the app!)
@@ -136,6 +136,7 @@ openstack endpoint list --service keystone --interface public
 
 #### To check logs on error: `juju debug-log --include unit-skyline/1 --replay`
 #### To remove the app: `juju remove-application skyline --force`
+#### If you need to repack your charm: `charmcraft clean`
 
 ### 7. Watch the deployment
 

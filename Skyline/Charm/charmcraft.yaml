@@ -41,3 +41,4 @@ parts:
   charm:
     charm-requirements:
       - requirements.txt
+    charm-entrypoint: src/charm.py
