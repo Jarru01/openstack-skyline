@@ -70,6 +70,7 @@ From the `skyline-charm/` directory:
 
 ```bash
 cd skyline-charm/
+chmod +x src/charm.py
 charmcraft pack
 ```
 
@@ -132,6 +133,9 @@ To find your Keystone public endpoint:
 ```bash
 openstack endpoint list --service keystone --interface public
 ```
+
+#### To check logs on error: `juju debug-log --include unit-skyline/1 --replay`
+#### To remove the app: `juju remove-application skyline --force`
 
 ### 7. Watch the deployment
 
