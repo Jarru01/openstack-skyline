@@ -375,10 +375,48 @@ class SkylineCharm(ops.CharmBase):
         self._patch_console_source()
 
         # ── Build the React app into a Python wheel ──────────────────────
+        # Output is redirected to a log file instead of the Juju hook pipe.
+        # The webpack build produces massive stdout which fills the pipe buffer
+        # and causes the hook process to be killed silently mid-build.
         self.unit.status = ops.MaintenanceStatus(
             "Building skyline-console wheel (takes several minutes)"
         )
-        self._nvm_sh(f"nvm use lts/{lts_alias} && cd {CONSOLE_SRC} && make package")
+        build_log = Path("/var/log/skyline/console-build.log")
+        build_log.parent.mkdir(parents=True, exist_ok=True)
+
+        build_script = (
+            f'export HOME=/root; '
+            f'export NVM_DIR="{NVM_DIR}"; '
+            f'[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; '
+            f'nvm use lts/{lts_alias}; '
+            f'export PATH="{VENV_BIN}:$PATH"; '
+            f'cd {CONSOLE_SRC}; '
+            f'make package'
+        )
+
+        logger.info("Starting console build — output at %s", build_log)
+        with open(build_log, "w") as log_fh:
+            result = subprocess.run(
+                ["bash", "-c", build_script],
+                stdout=log_fh,
+                stderr=log_fh,
+                check=False,
+            )
+
+        if result.returncode != 0:
+            try:
+                tail = subprocess.run(
+                    ["tail", "-n", "80", str(build_log)],
+                    capture_output=True, text=True,
+                ).stdout
+            except Exception:
+                tail = "(could not read build log)"
+            raise RuntimeError(
+                f"make package failed (exit {result.returncode}). "
+                f"Full log at {build_log}. Last lines:\n{tail}"
+            )
+
+        logger.info("Console build completed successfully")
 
         wheels = sorted(CONSOLE_SRC.glob("dist/skyline_console-*.whl"))
         if not wheels:

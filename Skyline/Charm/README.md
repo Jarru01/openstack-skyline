@@ -123,7 +123,6 @@ Record the password — you will need it as `system-user-password` below.
 juju deploy ./skyline_ubuntu-22.04-amd64.charm \
   --config keystone-url="http://KEYSTONE_IP:5000/v3/" \
   --config system-user-password="THE_PASSWORD_YOU_SET_ABOVE" \
-  --config default-region="RegionOne" \
   --to lxd:0                  # deploy into an LXD container on machine 0
 ```
 
