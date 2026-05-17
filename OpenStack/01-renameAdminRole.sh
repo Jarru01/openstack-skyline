@@ -35,5 +35,6 @@ juju config keystone keystone-admin-role=admin
 # Wait for ALL units to reach active/idle before proceeding to Phase 2
 # Do not continue until this is clean (takes a lot of time to propagate)
 juju status
-echo "*****Wait for ALL units to reach active/idle before proceeding to Phase 2 - policyOverride.sh*****"
+echo "*****Wait for ALL units to reach active/idle before proceeding to Phase 2 - overrideKeystonePolicy.sh*****"
+echo "*****Neutron service restart is MANDATORY after juju status stabilizes (overrideKeystonePolicy.sh includes it)*****"
 echo "*****If errors related to HEAT occur, refer the the documentation at docs.cc.uniza.sk for fixing them (heat internal error)*****"
